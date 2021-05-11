@@ -6,10 +6,18 @@ version: 2.1
 
 executors:
   # Specify a common so-called executor containing the desired Python interpreter.
-  tester:
+  venv_tester:
+    working_directory: ~/repo
+    parameters:
+      tag:
+        type: string
+        default: "3.8"
+    docker:
+      - image: circleci/python:<< parameters.tag >>
+  conda_tester:
     working_directory: ~/repo
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/base:2021.04
   publisher:
     working_directory: ~/repo
     docker:
@@ -19,14 +27,25 @@ workflows:
   # Create workflow for testing and deploying agentMET4FOF.
   test_and_deploy:
     jobs:
-      - test_against_venv
+      - test_against_venv:
+          name: "test_python_py36"
+          tag: "3.6"
+      - test_against_venv:
+          name: "test_python_py37"
+          tag: "3.7"
+      - test_against_venv:
+          name: "test_python_py38"
+          tag: "3.8"
+      - test_against_venv:
+          name: "test_python_py39"
+          tag: "3.9"
       - test_against_conda
       - test_against_setup
       - preview_release:
           # Test the 'release' job to avoid trouble when Pull Requests get merged and
           # to preview publishing actions and the new changelog.
           requires:
-            - test_against_venv
+            - test_python_py38
             - test_against_conda
             - test_against_setup
       - confirm_previewed_release_actions:
@@ -128,7 +147,7 @@ jobs:
   # installed dependencies from the environment.yml.
   test_against_conda:
 
-    executor: tester
+    executor: conda_tester
 
     steps:
       - checkout
@@ -187,7 +206,7 @@ jobs:
   # installed dependencies from the setup.py.
   test_against_setup:
 
-    executor: tester
+    executor: venv_tester
 
     steps:
       - checkout
@@ -221,9 +240,14 @@ jobs:
   # Define one 'test' job to run their test suites against the
   # installed dependencies from the requirements files.
   test_against_venv:
+    parameters:
+      tag:
+        type: string
+        default: "3.8"
 
-    executor: tester
-
+    executor:
+      name: venv_tester
+      tag: << parameters.tag >>
     steps:
       - checkout
       - create_result_folder
